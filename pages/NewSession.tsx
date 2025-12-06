@@ -1,8 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, FileCode, FileText, Download, Terminal, Loader2, Check, AlertCircle } from 'lucide-react';
+import { ArrowRight, FileCode, FileText, Download, Terminal, Loader2, Check, AlertCircle, Plus } from 'lucide-react';
 import { fetchPRData, parseGitHubUrl } from '../services/githubService';
+import { generateUnitTest } from '../services/geminiService';
 
 const DEMO_CODE = `// src/components/UserProfile.tsx
 import React, { useState, useEffect } from 'react';
@@ -49,9 +50,10 @@ export const NewSession: React.FC = () => {
   const [code, setCode] = useState('');
   const [requirements, setRequirements] = useState('');
   const [prTitle, setPrTitle] = useState('');
-  
+
   // Checkout State
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [isGeneratingTests, setIsGeneratingTests] = useState(false);
   const [checkoutLogs, setCheckoutLogs] = useState<string[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -71,61 +73,75 @@ export const NewSession: React.FC = () => {
     setCheckoutLogs([]);
   };
 
+  const handleAddUnitTests = async () => {
+    if (!code) return;
+    setIsGeneratingTests(true);
+    try {
+      const tests = await generateUnitTest(code);
+      setCode(prev => `${prev}\n\n${tests}`);
+    } catch (error) {
+      console.error("Failed to generate tests", error);
+      alert("Failed to generate tests. Check console.");
+    } finally {
+      setIsGeneratingTests(false);
+    }
+  };
+
   const handleCheckout = async () => {
     if (!prLink) return;
     setIsCheckingOut(true);
     setCheckoutLogs([]);
     setPrTitle('');
-    
+
     const addLog = (msg: string) => setCheckoutLogs(prev => [...prev, msg]);
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
     try {
-        const parsed = parseGitHubUrl(prLink);
-        if (!parsed) {
-          addLog(`> Error: Invalid GitHub PR URL format.`);
-          addLog(`> Expected: https://github.com/owner/repo/pull/number`);
-          throw new Error("Invalid URL");
-        }
+      const parsed = parseGitHubUrl(prLink);
+      if (!parsed) {
+        addLog(`> Error: Invalid GitHub PR URL format.`);
+        addLog(`> Expected: https://github.com/owner/repo/pull/number`);
+        throw new Error("Invalid URL");
+      }
 
-        addLog(`> Initializing git environment...`);
-        await delay(400);
+      addLog(`> Initializing git environment...`);
+      await delay(400);
 
-        addLog(`> git clone https://github.com/${parsed.owner}/${parsed.repo}.git`);
-        await delay(600);
-        
-        addLog(`> cd ${parsed.repo}`);
-        await delay(300);
-        
-        addLog(`> git fetch origin pull/${parsed.number}/head:pr-${parsed.number}`);
-        await delay(800);
-        
-        addLog(`> git checkout pr-${parsed.number}`);
-        
-        // Actual fetch
-        const data = await fetchPRData(prLink);
-        
-        await delay(400);
-        addLog(`> Switched to branch 'pr-${parsed.number}'`);
-        addLog(`> HEAD is now at ${data.title.substring(0, 30)}...`);
-        addLog(`> Reading file contents...`);
-        
-        setCode(data.code);
-        setPrTitle(data.title);
+      addLog(`> git clone https://github.com/${parsed.owner}/${parsed.repo}.git`);
+      await delay(600);
 
-        // Only set requirements if empty, otherwise user might have pasted Jira tickets already
-        if (!requirements) {
-            setRequirements(`PR Title: ${data.title}\n\nDescription:\n${data.description}`);
-            addLog(`> Extracted PR description for requirements context.`);
-        }
-        
-        addLog(`> Success: Workspace ready.`);
+      addLog(`> cd ${parsed.repo}`);
+      await delay(300);
+
+      addLog(`> git fetch origin pull/${parsed.number}/head:pr-${parsed.number}`);
+      await delay(800);
+
+      addLog(`> git checkout pr-${parsed.number}`);
+
+      // Actual fetch
+      const data = await fetchPRData(prLink);
+
+      await delay(400);
+      addLog(`> Switched to branch 'pr-${parsed.number}'`);
+      addLog(`> HEAD is now at ${data.title.substring(0, 30)}...`);
+      addLog(`> Reading file contents...`);
+
+      setCode(data.code);
+      setPrTitle(data.title);
+
+      // Only set requirements if empty, otherwise user might have pasted Jira tickets already
+      if (!requirements) {
+        setRequirements(`PR Title: ${data.title}\n\nDescription:\n${data.description}`);
+        addLog(`> Extracted PR description for requirements context.`);
+      }
+
+      addLog(`> Success: Workspace ready.`);
 
     } catch (error: any) {
-        addLog(`> Error: ${error.message}`);
-        addLog(`> Checkout failed.`);
+      addLog(`> Error: ${error.message}`);
+      addLog(`> Checkout failed.`);
     } finally {
-        setIsCheckingOut(false);
+      setIsCheckingOut(false);
     }
   };
 
@@ -155,11 +171,10 @@ export const NewSession: React.FC = () => {
               <button
                 onClick={handleCheckout}
                 disabled={!prLink || isCheckingOut}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                  !prLink || isCheckingOut
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${!prLink || isCheckingOut
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                     : 'bg-slate-700 text-white hover:bg-slate-600 border border-slate-600'
-                }`}
+                  }`}
               >
                 {isCheckingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 Checkout Code
@@ -196,6 +211,19 @@ export const NewSession: React.FC = () => {
                   Load Demo Data
                 </button>
               </div>
+              <div className="flex gap-2 mb-2">
+                <button
+                  onClick={handleAddUnitTests}
+                  disabled={!code || isGeneratingTests || isCheckingOut}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${!code || isGeneratingTests || isCheckingOut
+                      ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                    }`}
+                >
+                  {isGeneratingTests ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                  Add Unit Tests
+                </button>
+              </div>
               <textarea
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -223,11 +251,10 @@ export const NewSession: React.FC = () => {
           <button
             onClick={handleStart}
             disabled={!code || !requirements || isCheckingOut}
-            className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold text-lg transition-all ${
-              !code || !requirements || isCheckingOut
-                ? 'bg-slate-700 text-slate-500 cursor-not-allowed' 
+            className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold text-lg transition-all ${!code || !requirements || isCheckingOut
+                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-blue-500/25 active:scale-95'
-            }`}
+              }`}
           >
             Start Vibe Debugging
             <ArrowRight className="w-5 h-5" />

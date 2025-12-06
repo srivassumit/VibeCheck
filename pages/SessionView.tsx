@@ -82,12 +82,24 @@ export const SessionView: React.FC = () => {
   };
 
   const handleSuggestChanges = async () => {
-    if (!result?.suggestedFix || !state.prLink || isPosting || postSuccess) return;
+    if (!state.prLink || isPosting || postSuccess) return;
+
+    let contentToPost = '';
+    let label = '';
+
+    if (activeTab === 'analysis' && result?.suggestedFix) {
+      contentToPost = `## 🤖 Vibe Check Suggestions\n\nHere are the suggested changes based on the requirements:\n\n\`\`\`tsx\n${result.suggestedFix}\n\`\`\``;
+      label = 'Fix';
+    } else if (activeTab === 'tests' && result?.generatedTests) {
+      contentToPost = `## 🧪 Vibe Check Unit Tests\n\nHere is a generated test suite to verify the requirements:\n\n\`\`\`tsx\n${result.generatedTests}\n\`\`\``;
+      label = 'Tests';
+    }
+
+    if (!contentToPost) return;
 
     setIsPosting(true);
     try {
-      const comment = `## 🤖 Vibe Check Suggestions\n\nHere are the suggested changes based on the requirements:\n\n\`\`\`tsx\n${result.suggestedFix}\n\`\`\``;
-      await createPRComment(state.prLink, comment);
+      await createPRComment(state.prLink, contentToPost);
       setPostSuccess(true);
       setTimeout(() => setPostSuccess(false), 3000); // Reset after 3s
     } catch (error) {
@@ -262,14 +274,35 @@ export const SessionView: React.FC = () => {
                 <div className="flex flex-col h-full">
                   <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
                     <span className="text-sm font-medium text-slate-300">Generated Test Suite</span>
-                    <button
-                      onClick={simulateTestRun}
-                      disabled={isRunningTests}
-                      className="flex items-center gap-2 text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded transition-colors"
-                    >
-                      {isRunningTests ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-                      Run Tests
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {result.generatedTests && (
+                        <button
+                          onClick={handleSuggestChanges}
+                          disabled={isPosting || postSuccess}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${postSuccess
+                              ? 'bg-green-600/20 text-green-400 border border-green-600/50'
+                              : 'bg-blue-600 hover:bg-blue-500 text-white'
+                            }`}
+                        >
+                          {isPosting ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : postSuccess ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <MessageSquare className="w-3 h-3" />
+                          )}
+                          {postSuccess ? 'Posted' : 'Suggest Changes'}
+                        </button>
+                      )}
+                      <button
+                        onClick={simulateTestRun}
+                        disabled={isRunningTests}
+                        className="flex items-center gap-2 text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded transition-colors"
+                      >
+                        {isRunningTests ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                        Run Tests
+                      </button>
+                    </div>
                   </div>
                   <div className="flex-1 overflow-auto p-4 bg-[#0d1117] flex flex-col gap-4">
                     <CodeBlock code={result.generatedTests} title="UserProfile.test.tsx" />
