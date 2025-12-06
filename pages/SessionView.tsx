@@ -32,9 +32,9 @@ export const SessionView: React.FC = () => {
       setResult(data);
       setStatus(AnalysisStatus.COMPLETED);
       
-      // Save result to DB
+      // Save result to DB (awaiting to ensure persistence)
       const duration = Date.now() - startTime;
-      saveSession(state.prLink, data, duration);
+      await saveSession(state.prLink, data, duration);
 
     } catch (error) {
       console.error(error);
