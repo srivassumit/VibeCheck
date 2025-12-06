@@ -1,7 +1,7 @@
-
 import { AnalysisResult, DashboardStats, HistoryItem } from '../types';
 
-const API_URL = 'http://localhost:3001/api';
+// Use relative URL to allow Vite proxy to handle the connection to localhost:3001
+const API_URL = '/api';
 
 /**
  * Fetches dashboard data from MongoDB via API
@@ -17,7 +17,8 @@ export const getDashboardData = async (): Promise<{ stats: DashboardStats; histo
     return data;
   } catch (error: any) {
     console.error("API Fetch Error:", error);
-    if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+    // Handle both Chrome and Safari/Firefox generic fetch errors
+    if (error.name === 'TypeError' && (error.message === 'Failed to fetch' || error.message === 'Load failed')) {
       throw new Error("Connection refused. Is the backend server running on port 3001?");
     }
     throw error;
