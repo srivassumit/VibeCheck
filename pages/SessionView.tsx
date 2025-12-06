@@ -1,23 +1,30 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { analyzePRCompliance } from '../services/geminiService';
 import { saveSession } from '../services/dbService';
+import { createPRComment } from '../services/githubService';
 import { AnalysisResult, AnalysisStatus } from '../types';
 import { CodeBlock } from '../components/CodeBlock';
-import { Loader2, CheckCircle, XCircle, Terminal, Play, Cpu, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Terminal, Play, Cpu, AlertTriangle, ArrowLeft, MessageSquare, Check } from 'lucide-react';
 
 export const SessionView: React.FC = () => {
   const location = useLocation();
   const state = location.state as { prLink: string; code: string; requirements: string; prTitle?: string };
-  
+
   const [status, setStatus] = useState<AnalysisStatus>(AnalysisStatus.IDLE);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState<'analysis' | 'tests' | 'fix'>('analysis');
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [testOutput, setTestOutput] = useState<string>('');
 
+  const [isPosting, setIsPosting] = useState(false);
+  const [postSuccess, setPostSuccess] = useState(false);
+
+  const hasAnalyzed = useRef(false);
+
   useEffect(() => {
-    if (state?.code && state?.requirements && status === AnalysisStatus.IDLE) {
+    if (state?.code && state?.requirements && status === AnalysisStatus.IDLE && !hasAnalyzed.current) {
+      hasAnalyzed.current = true;
       runAnalysis();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -28,10 +35,10 @@ export const SessionView: React.FC = () => {
     const startTime = Date.now();
     try {
       const data = await analyzePRCompliance(state.code, state.requirements);
-      
+
       setResult(data);
       setStatus(AnalysisStatus.COMPLETED);
-      
+
       // Save result to DB (awaiting to ensure persistence)
       const duration = Date.now() - startTime;
       // Pass the real PR title if we have it from the previous step
@@ -47,7 +54,7 @@ export const SessionView: React.FC = () => {
     if (!result?.generatedTests) return;
     setIsRunningTests(true);
     setTestOutput('');
-    
+
     // Simulate a build and test process
     const steps = [
       "Installing dependencies...",
@@ -63,15 +70,32 @@ export const SessionView: React.FC = () => {
         i++;
       } else {
         // Final result based on compliance
-        const finalMsg = result.compliant 
+        const finalMsg = result.compliant
           ? "✅ PASS  src/components/UserProfile.test.tsx\nTest Suites: 1 passed, 1 total\nTests:       4 passed, 4 total"
           : "❌ FAIL  src/components/UserProfile.test.tsx\nExpected element 'Delete User' to be in document.\nTests:       3 passed, 1 failed, 4 total";
-        
+
         setTestOutput(prev => prev + `\n${finalMsg}`);
         setIsRunningTests(false);
         clearInterval(interval);
       }
     }, 800);
+  };
+
+  const handleSuggestChanges = async () => {
+    if (!result?.suggestedFix || !state.prLink || isPosting || postSuccess) return;
+
+    setIsPosting(true);
+    try {
+      const comment = `## 🤖 Vibe Check Suggestions\n\nHere are the suggested changes based on the requirements:\n\n\`\`\`tsx\n${result.suggestedFix}\n\`\`\``;
+      await createPRComment(state.prLink, comment);
+      setPostSuccess(true);
+      setTimeout(() => setPostSuccess(false), 3000); // Reset after 3s
+    } catch (error) {
+      console.error('Failed to post comment:', error);
+      alert('Failed to post comment to GitHub. Check console for details.');
+    } finally {
+      setIsPosting(false);
+    }
   };
 
   if (!state) {
@@ -112,15 +136,15 @@ export const SessionView: React.FC = () => {
         </div>
 
         <div className="flex gap-2">
-          <button 
+          <button
             onClick={() => setActiveTab('analysis')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'analysis' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
           >
             Analysis & Fixes
           </button>
-          <button 
-             onClick={() => setActiveTab('tests')}
-             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'tests' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
+          <button
+            onClick={() => setActiveTab('tests')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'tests' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
           >
             Unit Tests
           </button>
@@ -149,20 +173,20 @@ export const SessionView: React.FC = () => {
           </div>
         ) : result ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-            
+
             {/* Left Col: Analysis & Logic */}
             <div className="space-y-6">
               {/* Score Card */}
               <div className="bg-vibe-panel border border-slate-700 rounded-xl p-6">
-                 <div className="flex justify-between items-center mb-4">
-                   <h2 className="text-lg font-semibold text-white">Vibe Score</h2>
-                   <span className={`text-3xl font-mono font-bold ${result.score > 80 ? 'text-green-400' : result.score > 50 ? 'text-yellow-400' : 'text-red-400'}`}>
-                     {result.score}/100
-                   </span>
-                 </div>
-                 <p className="text-slate-300 text-sm leading-relaxed border-l-2 border-blue-500 pl-4">
-                   {result.summary}
-                 </p>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold text-white">Vibe Score</h2>
+                  <span className={`text-3xl font-mono font-bold ${result.score > 80 ? 'text-green-400' : result.score > 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+                    {result.score}/100
+                  </span>
+                </div>
+                <p className="text-slate-300 text-sm leading-relaxed border-l-2 border-blue-500 pl-4">
+                  {result.summary}
+                </p>
               </div>
 
               {/* Issues List */}
@@ -184,62 +208,83 @@ export const SessionView: React.FC = () => {
                 </ul>
               </div>
 
-               {/* Reasoning */}
-               <div className="bg-vibe-panel border border-slate-700 rounded-xl p-6">
-                 <h3 className="text-md font-semibold text-white mb-2">Technical Reasoning</h3>
-                 <div className="text-sm text-slate-400 prose prose-invert">
-                   {result.reasoning}
-                 </div>
-               </div>
+              {/* Reasoning */}
+              <div className="bg-vibe-panel border border-slate-700 rounded-xl p-6">
+                <h3 className="text-md font-semibold text-white mb-2">Technical Reasoning</h3>
+                <div className="text-sm text-slate-400 prose prose-invert">
+                  {result.reasoning}
+                </div>
+              </div>
             </div>
 
             {/* Right Col: Code / Tests */}
             <div className="flex flex-col h-full bg-vibe-panel border border-slate-700 rounded-xl overflow-hidden">
               {activeTab === 'analysis' && (
                 <div className="flex flex-col h-full">
-                   <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-                     <span className="text-sm font-medium text-slate-300">Suggested Fix</span>
-                     {!result.compliant && <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">Auto-Generated</span>}
-                   </div>
-                   <div className="flex-1 overflow-auto p-4 bg-[#0d1117]">
-                     {result.suggestedFix ? (
-                       <CodeBlock code={result.suggestedFix} title="Fixed Component" />
-                     ) : (
-                       <div className="h-full flex items-center justify-center text-slate-500">
-                         <p>Code is compliant. No fixes needed.</p>
-                       </div>
-                     )}
-                   </div>
+                  <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
+                    <span className="text-sm font-medium text-slate-300">Suggested Fix</span>
+                    <div className="flex items-center gap-2">
+                      {result.suggestedFix && !result.compliant && (
+                        <button
+                          onClick={handleSuggestChanges}
+                          disabled={isPosting || postSuccess}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${postSuccess
+                            ? 'bg-green-600/20 text-green-400 border border-green-600/50'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                            }`}
+                        >
+                          {isPosting ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : postSuccess ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <MessageSquare className="w-3 h-3" />
+                          )}
+                          {postSuccess ? 'Posted' : 'Suggest Changes'}
+                        </button>
+                      )}
+                      {!result.compliant && <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">Auto-Generated</span>}
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-auto p-4 bg-[#0d1117]">
+                    {result.suggestedFix ? (
+                      <CodeBlock code={result.suggestedFix} title="Fixed Component" />
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-slate-500">
+                        <p>Code is compliant. No fixes needed.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {activeTab === 'tests' && (
                 <div className="flex flex-col h-full">
-                   <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-                     <span className="text-sm font-medium text-slate-300">Generated Test Suite</span>
-                     <button 
-                       onClick={simulateTestRun}
-                       disabled={isRunningTests}
-                       className="flex items-center gap-2 text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded transition-colors"
-                     >
-                       {isRunningTests ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" /> }
-                       Run Tests
-                     </button>
-                   </div>
-                   <div className="flex-1 overflow-auto p-4 bg-[#0d1117] flex flex-col gap-4">
-                     <CodeBlock code={result.generatedTests} title="UserProfile.test.tsx" />
-                     
-                     {/* Terminal Output */}
-                     <div className="mt-4 rounded-lg bg-black border border-slate-800 p-4 font-mono text-xs text-slate-300">
-                        <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2 text-slate-500">
-                          <Terminal className="w-3 h-3" />
-                          <span>Console</span>
-                        </div>
-                        <pre className="whitespace-pre-wrap">
-                          {testOutput || <span className="text-slate-600 italic">// Click 'Run Tests' to execute</span>}
-                        </pre>
-                     </div>
-                   </div>
+                  <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
+                    <span className="text-sm font-medium text-slate-300">Generated Test Suite</span>
+                    <button
+                      onClick={simulateTestRun}
+                      disabled={isRunningTests}
+                      className="flex items-center gap-2 text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded transition-colors"
+                    >
+                      {isRunningTests ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                      Run Tests
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-auto p-4 bg-[#0d1117] flex flex-col gap-4">
+                    <CodeBlock code={result.generatedTests} title="UserProfile.test.tsx" />
+
+                    {/* Terminal Output */}
+                    <div className="mt-4 rounded-lg bg-black border border-slate-800 p-4 font-mono text-xs text-slate-300">
+                      <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2 text-slate-500">
+                        <Terminal className="w-3 h-3" />
+                        <span>Console</span>
+                      </div>
+                      <pre className="whitespace-pre-wrap">
+                        {testOutput || <span className="text-slate-600 italic">// Click 'Run Tests' to execute</span>}
+                      </pre>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

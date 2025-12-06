@@ -13,11 +13,11 @@ const getHeaders = () => {
     'Accept': 'application/vnd.github.v3+json',
     'Content-Type': 'application/json'
   };
-  
+
   if (process.env.GITHUB_TOKEN) {
     headers['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
   }
-  
+
   return headers;
 };
 
@@ -26,11 +26,11 @@ export const parseGitHubUrl = (url: string) => {
     // Expected format: https://github.com/owner/repo/pull/number
     const urlObj = new URL(url);
     if (urlObj.hostname !== 'github.com') return null;
-    
+
     const parts = urlObj.pathname.split('/').filter(Boolean);
     // parts[0] = owner, parts[1] = repo, parts[2] = pull, parts[3] = number
     if (parts.length < 4 || parts[2] !== 'pull') return null;
-    
+
     return {
       owner: parts[0],
       repo: parts[1],
@@ -51,7 +51,7 @@ export const fetchPRData = async (url: string): Promise<GitHubPRData> => {
 
   // Fetch PR Details
   const prResponse = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/pulls/${parsed.number}`, { headers });
-  
+
   if (!prResponse.ok) {
     if (prResponse.status === 403) throw new Error("GitHub API rate limit exceeded. Please try again later or configure GITHUB_TOKEN.");
     if (prResponse.status === 404) throw new Error("Repository or PR not found (Check if it's public).");
@@ -86,4 +86,27 @@ export const fetchPRData = async (url: string): Promise<GitHubPRData> => {
     repo: parsed.repo,
     number: parsed.number
   };
+};
+
+export const createPRComment = async (url: string, body: string): Promise<any> => {
+  const parsed = parseGitHubUrl(url);
+  if (!parsed) {
+    throw new Error("Invalid GitHub Pull Request URL");
+  }
+
+  const headers = getHeaders();
+
+  // POST /repos/{owner}/{repo}/issues/{issue_number}/comments
+  // PRs are issues in GitHub API v3 for commenting purposes
+  const response = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ body })
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to post comment to GitHub.");
+  }
+
+  return await response.json();
 };
