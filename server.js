@@ -23,6 +23,7 @@ const AnalysisRunSchema = new mongoose.Schema({
   title: String,
   description: String,
   prLink: String,
+  requirements: String, // Added field for Jira Requirements
   status: { type: String, enum: ['passed', 'failed'] },
   score: Number,
   durationMs: Number,
@@ -109,6 +110,7 @@ app.post('/api/history', async (req, res) => {
       title: data.title,
       description: data.description,
       prLink: data.prLink,
+      requirements: data.requirements, // Save requirements
       status: data.status,
       score: data.score,
       durationMs: data.durationMs,

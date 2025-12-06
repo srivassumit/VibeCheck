@@ -35,7 +35,7 @@ export const SessionView: React.FC = () => {
       // Save result to DB (awaiting to ensure persistence)
       const duration = Date.now() - startTime;
       // Pass the real PR title if we have it from the previous step
-      await saveSession(state.prLink, data, duration, state.prTitle);
+      await saveSession(state.prLink, data, duration, state.prTitle, state.requirements);
 
     } catch (error) {
       console.error(error);

@@ -8,6 +8,19 @@ export interface GitHubPRData {
   number: string;
 }
 
+const getHeaders = () => {
+  const headers: HeadersInit = {
+    'Accept': 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json'
+  };
+  
+  if (process.env.GITHUB_TOKEN) {
+    headers['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
+  }
+  
+  return headers;
+};
+
 export const parseGitHubUrl = (url: string) => {
   try {
     // Expected format: https://github.com/owner/repo/pull/number
@@ -34,17 +47,20 @@ export const fetchPRData = async (url: string): Promise<GitHubPRData> => {
     throw new Error("Invalid GitHub Pull Request URL");
   }
 
+  const headers = getHeaders();
+
   // Fetch PR Details
-  const prResponse = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/pulls/${parsed.number}`);
+  const prResponse = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/pulls/${parsed.number}`, { headers });
+  
   if (!prResponse.ok) {
-    if (prResponse.status === 403) throw new Error("GitHub API rate limit exceeded. Please try again later.");
+    if (prResponse.status === 403) throw new Error("GitHub API rate limit exceeded. Please try again later or configure GITHUB_TOKEN.");
     if (prResponse.status === 404) throw new Error("Repository or PR not found (Check if it's public).");
     throw new Error("Failed to fetch PR details.");
   }
   const prData = await prResponse.json();
 
   // Fetch PR Files
-  const filesResponse = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/pulls/${parsed.number}/files`);
+  const filesResponse = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/pulls/${parsed.number}/files`, { headers });
   if (!filesResponse.ok) {
     throw new Error("Failed to fetch PR files.");
   }

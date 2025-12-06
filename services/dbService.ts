@@ -73,7 +73,8 @@ export const saveSession = async (
   prLink: string, 
   result: AnalysisResult, 
   durationMs: number,
-  customTitle?: string
+  customTitle?: string,
+  requirements?: string
 ): Promise<HistoryItem> => {
   const isPass = result.compliant;
   // Use custom title if available (from real GitHub data), else fallback to generated one
@@ -84,6 +85,7 @@ export const saveSession = async (
     title,
     description,
     prLink,
+    requirements,
     status: isPass ? 'passed' : 'failed',
     score: result.score,
     durationMs,
