@@ -1,6 +1,6 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
 
 const app = express();
 const PORT = 3001;
@@ -52,7 +52,7 @@ app.get('/api/dashboard', async (req, res) => {
     // 2. Aggregate Stats
     const totalRuns = await AnalysisRun.countDocuments();
     const passed = await AnalysisRun.countDocuments({ status: 'passed' });
-    
+
     // Aggregation for Average Time and Total Issues
     const aggResults = await AnalysisRun.aggregate([
       {
@@ -65,10 +65,10 @@ app.get('/api/dashboard', async (req, res) => {
     ]);
 
     const result = aggResults[0] || { avgDuration: 0, totalIssues: 0 };
-    
+
     const avgMs = result.avgDuration || 0;
     const avgMins = avgMs / 60000;
-    
+
     // Format string "Xm Ys"
     const mins = Math.floor(avgMins);
     const secs = Math.round((avgMins - mins) * 60);
@@ -107,7 +107,7 @@ app.get('/api/dashboard', async (req, res) => {
 app.post('/api/history', async (req, res) => {
   try {
     const data = req.body;
-    
+
     const newRun = new AnalysisRun({
       title: data.title,
       description: data.description,
