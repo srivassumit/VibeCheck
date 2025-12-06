@@ -48,6 +48,7 @@ export const NewSession: React.FC = () => {
   const [prLink, setPrLink] = useState('');
   const [code, setCode] = useState('');
   const [requirements, setRequirements] = useState('');
+  const [prTitle, setPrTitle] = useState('');
   
   // Checkout State
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -59,13 +60,14 @@ export const NewSession: React.FC = () => {
   }, [checkoutLogs]);
 
   const handleStart = () => {
-    navigate('/session/active', { state: { prLink, code, requirements } });
+    navigate('/session/active', { state: { prLink, code, requirements, prTitle } });
   };
 
   const loadDemo = () => {
     setPrLink('https://github.com/org/repo/pull/42');
     setCode(DEMO_CODE);
     setRequirements(DEMO_REQ);
+    setPrTitle('feat: user profile component implementation');
     setCheckoutLogs([]);
   };
 
@@ -73,6 +75,7 @@ export const NewSession: React.FC = () => {
     if (!prLink) return;
     setIsCheckingOut(true);
     setCheckoutLogs([]);
+    setPrTitle('');
     
     const addLog = (msg: string) => setCheckoutLogs(prev => [...prev, msg]);
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -108,6 +111,8 @@ export const NewSession: React.FC = () => {
         addLog(`> Reading file contents...`);
         
         setCode(data.code);
+        setPrTitle(data.title);
+
         // Only set requirements if empty, otherwise user might have pasted Jira tickets already
         if (!requirements) {
             setRequirements(`PR Title: ${data.title}\n\nDescription:\n${data.description}`);

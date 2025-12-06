@@ -8,7 +8,7 @@ import { Loader2, CheckCircle, XCircle, Terminal, Play, Cpu, AlertTriangle, Arro
 
 export const SessionView: React.FC = () => {
   const location = useLocation();
-  const state = location.state as { prLink: string; code: string; requirements: string };
+  const state = location.state as { prLink: string; code: string; requirements: string; prTitle?: string };
   
   const [status, setStatus] = useState<AnalysisStatus>(AnalysisStatus.IDLE);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -34,7 +34,8 @@ export const SessionView: React.FC = () => {
       
       // Save result to DB (awaiting to ensure persistence)
       const duration = Date.now() - startTime;
-      await saveSession(state.prLink, data, duration);
+      // Pass the real PR title if we have it from the previous step
+      await saveSession(state.prLink, data, duration, state.prTitle);
 
     } catch (error) {
       console.error(error);

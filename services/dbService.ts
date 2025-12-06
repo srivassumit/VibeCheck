@@ -72,10 +72,12 @@ export const getDashboardData = async (): Promise<{ stats: DashboardStats; histo
 export const saveSession = async (
   prLink: string, 
   result: AnalysisResult, 
-  durationMs: number
+  durationMs: number,
+  customTitle?: string
 ): Promise<HistoryItem> => {
   const isPass = result.compliant;
-  const title = prLink ? `PR #${prLink.split('/').pop() || 'Unknown'}` : 'Local Code Analysis';
+  // Use custom title if available (from real GitHub data), else fallback to generated one
+  const title = customTitle || (prLink ? `PR #${prLink.split('/').pop() || 'Unknown'}` : 'Local Code Analysis');
   const description = result.summary.length > 100 ? result.summary.substring(0, 100) + '...' : result.summary;
 
   const payload = {
@@ -86,6 +88,7 @@ export const saveSession = async (
     score: result.score,
     durationMs,
     issues: result.issues,
+    issueCount: result.issues.length,
     summary: result.summary
   };
 

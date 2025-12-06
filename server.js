@@ -27,12 +27,13 @@ const AnalysisRunSchema = new mongoose.Schema({
   score: Number,
   durationMs: Number,
   issues: [String],
+  issueCount: Number,
   summary: String,
   createdAt: { type: Date, default: Date.now }
 });
 
-// Explicitly use the 'history' collection
-const AnalysisRun = mongoose.model('AnalysisRun', AnalysisRunSchema, 'history');
+// Explicitly use the 'PRChecks' collection as requested
+const AnalysisRun = mongoose.model('AnalysisRun', AnalysisRunSchema, 'PRChecks');
 
 // Routes
 
@@ -112,12 +113,13 @@ app.post('/api/history', async (req, res) => {
       score: data.score,
       durationMs: data.durationMs,
       issues: data.issues || [],
+      issueCount: data.issueCount || (data.issues ? data.issues.length : 0),
       summary: data.summary,
       createdAt: new Date()
     });
 
     const saved = await newRun.save();
-    console.log(`💾 Saved session: ${saved._id}`);
+    console.log(`💾 Saved session to PRChecks: ${saved._id}`);
     res.status(201).json(saved);
   } catch (error) {
     console.error('Error saving session:', error);
