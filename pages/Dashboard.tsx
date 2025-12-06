@@ -1,8 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { getDashboardData } from '../services/dbService';
 
 export const Dashboard: React.FC = () => {
+  // Load data from local DB on mount
+  const [data] = useState(getDashboardData());
+  const { stats, history } = data;
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-10">
@@ -19,13 +25,14 @@ export const Dashboard: React.FC = () => {
         </Link>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="bg-vibe-panel border border-slate-700 p-6 rounded-xl">
           <div className="flex justify-between items-start mb-4">
             <div className="p-2 bg-green-500/10 rounded-lg">
               <CheckCircle className="w-6 h-6 text-green-500" />
             </div>
-            <span className="text-2xl font-bold text-white">12</span>
+            <span className="text-2xl font-bold text-white">{stats.passed}</span>
           </div>
           <p className="text-slate-400 text-sm">PRs Passed</p>
         </div>
@@ -34,7 +41,7 @@ export const Dashboard: React.FC = () => {
             <div className="p-2 bg-yellow-500/10 rounded-lg">
               <AlertTriangle className="w-6 h-6 text-yellow-500" />
             </div>
-            <span className="text-2xl font-bold text-white">3</span>
+            <span className="text-2xl font-bold text-white">{stats.issues}</span>
           </div>
           <p className="text-slate-400 text-sm">Issues Detected</p>
         </div>
@@ -43,7 +50,7 @@ export const Dashboard: React.FC = () => {
             <div className="p-2 bg-blue-500/10 rounded-lg">
               <Clock className="w-6 h-6 text-blue-500" />
             </div>
-            <span className="text-2xl font-bold text-white">8m</span>
+            <span className="text-2xl font-bold text-white">{stats.avgTime}</span>
           </div>
           <p className="text-slate-400 text-sm">Avg. Analysis Time</p>
         </div>
@@ -58,38 +65,47 @@ export const Dashboard: React.FC = () => {
           <div className="col-span-2 text-right">Date</div>
         </div>
         
-        {/* Mock Items */}
-        <div className="divide-y divide-slate-700">
-           <div className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-slate-800/50 transition-colors cursor-pointer group">
-             <div className="col-span-6">
-               <div className="font-medium text-blue-400 group-hover:text-blue-300">fix(auth): correct token expiration logic</div>
-               <div className="text-xs text-slate-500 mt-1">PROJ-123 • Implement JWT refresh flow</div>
-             </div>
-             <div className="col-span-2">
-               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
-                 <CheckCircle className="w-3 h-3" />
-                 Passed
-               </span>
-             </div>
-             <div className="col-span-2 text-white font-mono">98/100</div>
-             <div className="col-span-2 text-right text-slate-500 text-sm">2h ago</div>
+        {history.length === 0 ? (
+           <div className="p-8 text-center text-slate-500">
+             No analyses run yet. Start a new session!
            </div>
-
-           <div className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-slate-800/50 transition-colors cursor-pointer group">
-             <div className="col-span-6">
-               <div className="font-medium text-blue-400 group-hover:text-blue-300">feat(ui): add dashboard widgets</div>
-               <div className="text-xs text-slate-500 mt-1">PROJ-129 • New analytics chart components</div>
-             </div>
-             <div className="col-span-2">
-               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                 <AlertTriangle className="w-3 h-3" />
-                 Failed
-               </span>
-             </div>
-             <div className="col-span-2 text-white font-mono">64/100</div>
-             <div className="col-span-2 text-right text-slate-500 text-sm">5h ago</div>
-           </div>
-        </div>
+        ) : (
+          <div className="divide-y divide-slate-700">
+             {history.map((item) => (
+               <div key={item.id} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-slate-800/50 transition-colors cursor-pointer group">
+                 <div className="col-span-6">
+                   <div className="font-medium text-blue-400 group-hover:text-blue-300 truncate" title={item.title}>
+                     {item.title}
+                   </div>
+                   <div className="text-xs text-slate-500 mt-1 truncate" title={item.description}>
+                     {item.description}
+                   </div>
+                 </div>
+                 <div className="col-span-2">
+                   {item.status === 'passed' ? (
+                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+                       <CheckCircle className="w-3 h-3" />
+                       Passed
+                     </span>
+                   ) : (
+                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                       <AlertTriangle className="w-3 h-3" />
+                       Failed
+                     </span>
+                   )}
+                 </div>
+                 <div className="col-span-2 text-white font-mono">
+                   <span className={item.score > 80 ? 'text-green-400' : item.score > 50 ? 'text-yellow-400' : 'text-red-400'}>
+                     {item.score}/100
+                   </span>
+                 </div>
+                 <div className="col-span-2 text-right text-slate-500 text-sm">
+                   {formatDistanceToNow(new Date(item.date), { addSuffix: true })}
+                 </div>
+               </div>
+             ))}
+          </div>
+        )}
       </div>
     </div>
   );

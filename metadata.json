@@ -1,5 +1,5 @@
 {
-  "name": "VibeDebug",
+  "name": "VibeCheck",
   "description": "An AI-powered PR verification tool that validates code against requirements, generates tests, and autonomously resolves issues using Gemini 3.",
   "requestFramePermissions": []
 }

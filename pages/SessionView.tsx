@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { analyzePRCompliance } from '../services/geminiService';
+import { saveSession } from '../services/dbService';
 import { AnalysisResult, AnalysisStatus } from '../types';
 import { CodeBlock } from '../components/CodeBlock';
 import { Loader2, CheckCircle, XCircle, Terminal, Play, Cpu, AlertTriangle, ArrowLeft } from 'lucide-react';
@@ -24,10 +25,17 @@ export const SessionView: React.FC = () => {
 
   const runAnalysis = async () => {
     setStatus(AnalysisStatus.ANALYZING);
+    const startTime = Date.now();
     try {
       const data = await analyzePRCompliance(state.code, state.requirements);
+      
       setResult(data);
       setStatus(AnalysisStatus.COMPLETED);
+      
+      // Save result to DB
+      const duration = Date.now() - startTime;
+      saveSession(state.prLink, data, duration);
+
     } catch (error) {
       console.error(error);
       setStatus(AnalysisStatus.ERROR);
@@ -84,7 +92,7 @@ export const SessionView: React.FC = () => {
           </Link>
           <div>
             <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              PR Analysis <span className="text-slate-500 font-normal">#{state.prLink.split('/').pop() || 'Unknown'}</span>
+              PR Analysis <span className="text-slate-500 font-normal">#{state.prLink ? state.prLink.split('/').pop() : 'Local'}</span>
             </h1>
             <div className="flex items-center gap-2 mt-1">
               {status === AnalysisStatus.ANALYZING && (
@@ -213,7 +221,7 @@ export const SessionView: React.FC = () => {
                        disabled={isRunningTests}
                        className="flex items-center gap-2 text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded transition-colors"
                      >
-                       {isRunningTests ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                       {isRunningTests ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" /> }
                        Run Tests
                      </button>
                    </div>

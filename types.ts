@@ -35,3 +35,21 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
 }
+
+export interface DashboardStats {
+  passed: number;
+  issues: number;
+  avgTime: string;
+  avgTimeMinutes: number;
+  totalRuns: number;
+}
+
+export interface HistoryItem {
+  id: string;
+  title: string;
+  description: string;
+  status: 'passed' | 'failed';
+  score: number;
+  date: string;
+  timestamp: number;
+}
