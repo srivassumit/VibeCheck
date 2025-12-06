@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, FileCode, FileText } from 'lucide-react';
+import { ArrowRight, FileCode, FileText, Download, Terminal, Loader2, Check, AlertCircle } from 'lucide-react';
+import { fetchPRData, parseGitHubUrl } from '../services/githubService';
 
 const DEMO_CODE = `// src/components/UserProfile.tsx
 import React, { useState, useEffect } from 'react';
@@ -46,10 +48,17 @@ export const NewSession: React.FC = () => {
   const [prLink, setPrLink] = useState('');
   const [code, setCode] = useState('');
   const [requirements, setRequirements] = useState('');
+  
+  // Checkout State
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [checkoutLogs, setCheckoutLogs] = useState<string[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [checkoutLogs]);
 
   const handleStart = () => {
-    // In a real app, we'd persist this to context or DB
-    // Here we just pass state via navigation
     navigate('/session/active', { state: { prLink, code, requirements } });
   };
 
@@ -57,10 +66,66 @@ export const NewSession: React.FC = () => {
     setPrLink('https://github.com/org/repo/pull/42');
     setCode(DEMO_CODE);
     setRequirements(DEMO_REQ);
+    setCheckoutLogs([]);
+  };
+
+  const handleCheckout = async () => {
+    if (!prLink) return;
+    setIsCheckingOut(true);
+    setCheckoutLogs([]);
+    
+    const addLog = (msg: string) => setCheckoutLogs(prev => [...prev, msg]);
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+    try {
+        const parsed = parseGitHubUrl(prLink);
+        if (!parsed) {
+          addLog(`> Error: Invalid GitHub PR URL format.`);
+          addLog(`> Expected: https://github.com/owner/repo/pull/number`);
+          throw new Error("Invalid URL");
+        }
+
+        addLog(`> Initializing git environment...`);
+        await delay(400);
+
+        addLog(`> git clone https://github.com/${parsed.owner}/${parsed.repo}.git`);
+        await delay(600);
+        
+        addLog(`> cd ${parsed.repo}`);
+        await delay(300);
+        
+        addLog(`> git fetch origin pull/${parsed.number}/head:pr-${parsed.number}`);
+        await delay(800);
+        
+        addLog(`> git checkout pr-${parsed.number}`);
+        
+        // Actual fetch
+        const data = await fetchPRData(prLink);
+        
+        await delay(400);
+        addLog(`> Switched to branch 'pr-${parsed.number}'`);
+        addLog(`> HEAD is now at ${data.title.substring(0, 30)}...`);
+        addLog(`> Reading file contents...`);
+        
+        setCode(data.code);
+        // Only set requirements if empty, otherwise user might have pasted Jira tickets already
+        if (!requirements) {
+            setRequirements(`PR Title: ${data.title}\n\nDescription:\n${data.description}`);
+            addLog(`> Extracted PR description for requirements context.`);
+        }
+        
+        addLog(`> Success: Workspace ready.`);
+
+    } catch (error: any) {
+        addLog(`> Error: ${error.message}`);
+        addLog(`> Checkout failed.`);
+    } finally {
+        setIsCheckingOut(false);
+    }
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-8 max-w-5xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">New Vibe Check</h1>
         <p className="text-slate-400">Validate code against requirements using Gemini 3.</p>
@@ -68,19 +133,52 @@ export const NewSession: React.FC = () => {
 
       <div className="space-y-6">
         {/* Input Section */}
-        <div className="bg-vibe-panel border border-slate-700 rounded-xl p-6">
+        <div className="bg-vibe-panel border border-slate-700 rounded-xl p-6 shadow-xl">
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Pull Request URL (GitHub/GitLab)
+              Pull Request URL (GitHub Public Repo)
             </label>
-            <input
-              type="text"
-              value={prLink}
-              onChange={(e) => setPrLink(e.target.value)}
-              placeholder="https://github.com/..."
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={prLink}
+                onChange={(e) => setPrLink(e.target.value)}
+                placeholder="https://github.com/owner/repo/pull/123"
+                disabled={isCheckingOut}
+                className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all disabled:opacity-50 font-mono text-sm"
+              />
+              <button
+                onClick={handleCheckout}
+                disabled={!prLink || isCheckingOut}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                  !prLink || isCheckingOut
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    : 'bg-slate-700 text-white hover:bg-slate-600 border border-slate-600'
+                }`}
+              >
+                {isCheckingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Checkout Code
+              </button>
+            </div>
           </div>
+
+          {/* Terminal Output */}
+          {checkoutLogs.length > 0 && (
+            <div className="mb-6 bg-black rounded-lg border border-slate-800 p-4 font-mono text-xs shadow-inner max-h-48 overflow-y-auto">
+              <div className="flex items-center gap-2 text-slate-500 mb-2 pb-2 border-b border-slate-900">
+                <Terminal className="w-3 h-3" />
+                <span>Terminal</span>
+              </div>
+              <div className="space-y-1">
+                {checkoutLogs.map((log, i) => (
+                  <div key={i} className={`${log.startsWith('> Error') ? 'text-red-400' : log.startsWith('> Success') ? 'text-green-400' : 'text-slate-300'}`}>
+                    {log}
+                  </div>
+                ))}
+                <div ref={logsEndRef} />
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -96,8 +194,8 @@ export const NewSession: React.FC = () => {
               <textarea
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="// Paste the changed code here..."
-                className="w-full h-96 bg-slate-900 border border-slate-700 rounded-lg p-4 text-sm font-mono text-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                placeholder="// Code will appear here after checkout..."
+                className="w-full h-96 bg-slate-900 border border-slate-700 rounded-lg p-4 text-xs font-mono text-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none leading-relaxed"
               />
             </div>
 
@@ -109,8 +207,8 @@ export const NewSession: React.FC = () => {
               <textarea
                 value={requirements}
                 onChange={(e) => setRequirements(e.target.value)}
-                placeholder="Paste the requirements here..."
-                className="w-full h-96 bg-slate-900 border border-slate-700 rounded-lg p-4 text-sm text-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                placeholder="Paste the requirements here or checkout PR to auto-fill description..."
+                className="w-full h-96 bg-slate-900 border border-slate-700 rounded-lg p-4 text-sm text-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none leading-relaxed"
               />
             </div>
           </div>
@@ -119,9 +217,9 @@ export const NewSession: React.FC = () => {
         <div className="flex justify-end">
           <button
             onClick={handleStart}
-            disabled={!code || !requirements}
+            disabled={!code || !requirements || isCheckingOut}
             className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold text-lg transition-all ${
-              !code || !requirements 
+              !code || !requirements || isCheckingOut
                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' 
                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-blue-500/25 active:scale-95'
             }`}
