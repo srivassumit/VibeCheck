@@ -44,8 +44,8 @@ export const analyzePRCompliance = async (
       compliant: { type: Type.BOOLEAN, description: "Does the code meet all requirements?" },
       score: { type: Type.INTEGER, description: "Quality score from 0 to 100" },
       summary: { type: Type.STRING, description: "Executive summary of the analysis" },
-      issues: { 
-        type: Type.ARRAY, 
+      issues: {
+        type: Type.ARRAY,
         items: { type: Type.STRING },
         description: "List of specific issues found"
       },
@@ -72,7 +72,7 @@ export const analyzePRCompliance = async (
 
     const text = response.text;
     if (!text) throw new Error("No response from Gemini");
-    
+
     return JSON.parse(text) as AnalysisResult;
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
@@ -85,7 +85,7 @@ export const debugStep = async (
   newMessage: string
 ): Promise<string> => {
   const ai = getClient();
-  
+
   // Convert history to Gemini format
   const contents = history.map(msg => ({
     role: msg.role === 'admin' ? 'model' : msg.role, // map custom roles if needed
@@ -119,13 +119,13 @@ export const debugStep = async (
 };
 
 export const generateUnitTest = async (code: string): Promise<string> => {
-    const ai = getClient();
-    const prompt = `Generate a comprehensive Jest/React Testing Library test suite for the following component/function. Include edge cases. \n\n Code: \n${code}`;
-    
-    const response = await ai.models.generateContent({
-        model: FAST_MODEL, // Flash is good enough for standard boilerplate generation
-        contents: prompt
-    });
+  const ai = getClient();
+  const prompt = `Generate a comprehensive Jest/React Testing Library test suite for the following component/function. Include edge cases. \n\n Code: \n${code}`;
 
-    return response.text || "// Failed to generate tests";
+  const response = await ai.models.generateContent({
+    model: REASONING_MODEL,
+    contents: prompt
+  });
+
+  return response.text || "// Failed to generate tests";
 }

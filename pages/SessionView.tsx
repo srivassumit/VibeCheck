@@ -9,11 +9,11 @@ import { Loader2, CheckCircle, XCircle, Terminal, Play, Cpu, AlertTriangle, Arro
 
 export const SessionView: React.FC = () => {
   const location = useLocation();
-  const state = location.state as { prLink: string; code: string; requirements: string; prTitle?: string };
+  const state = location.state as { prLink: string; code: string; requirements: string; prTitle?: string; initialTab?: 'analysis' | 'tests' | 'fix' };
 
   const [status, setStatus] = useState<AnalysisStatus>(AnalysisStatus.IDLE);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [activeTab, setActiveTab] = useState<'analysis' | 'tests' | 'fix'>('analysis');
+  const [activeTab, setActiveTab] = useState<'analysis' | 'tests' | 'fix'>(state?.initialTab || 'analysis');
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [testOutput, setTestOutput] = useState<string>('');
 
@@ -280,8 +280,8 @@ export const SessionView: React.FC = () => {
                           onClick={handleSuggestChanges}
                           disabled={isPosting || postSuccess}
                           className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${postSuccess
-                              ? 'bg-green-600/20 text-green-400 border border-green-600/50'
-                              : 'bg-blue-600 hover:bg-blue-500 text-white'
+                            ? 'bg-green-600/20 text-green-400 border border-green-600/50'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white'
                             }`}
                         >
                           {isPosting ? (

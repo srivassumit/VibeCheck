@@ -78,11 +78,16 @@ export const NewSession: React.FC = () => {
     setIsGeneratingTests(true);
     try {
       const tests = await generateUnitTest(code);
-      setCode(prev => `${prev}\n\n${tests}`);
+      navigate('/unit-tests', {
+        state: {
+          prLink,
+          code,
+          generatedTests: tests
+        }
+      });
     } catch (error) {
       console.error("Failed to generate tests", error);
       alert("Failed to generate tests. Check console.");
-    } finally {
       setIsGeneratingTests(false);
     }
   };
@@ -172,8 +177,8 @@ export const NewSession: React.FC = () => {
                 onClick={handleCheckout}
                 disabled={!prLink || isCheckingOut}
                 className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${!prLink || isCheckingOut
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                    : 'bg-slate-700 text-white hover:bg-slate-600 border border-slate-600'
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  : 'bg-slate-700 text-white hover:bg-slate-600 border border-slate-600'
                   }`}
               >
                 {isCheckingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
@@ -216,8 +221,8 @@ export const NewSession: React.FC = () => {
                   onClick={handleAddUnitTests}
                   disabled={!code || isGeneratingTests || isCheckingOut}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${!code || isGeneratingTests || isCheckingOut
-                      ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                      : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
                     }`}
                 >
                   {isGeneratingTests ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
@@ -252,8 +257,8 @@ export const NewSession: React.FC = () => {
             onClick={handleStart}
             disabled={!code || !requirements || isCheckingOut}
             className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold text-lg transition-all ${!code || !requirements || isCheckingOut
-                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-blue-500/25 active:scale-95'
+              ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+              : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-blue-500/25 active:scale-95'
               }`}
           >
             Start Vibe Debugging
