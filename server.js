@@ -52,19 +52,21 @@ app.get('/api/dashboard', async (req, res) => {
     // 2. Aggregate Stats
     const totalRuns = await AnalysisRun.countDocuments();
     const passed = await AnalysisRun.countDocuments({ status: 'passed' });
-    const failed = await AnalysisRun.countDocuments({ status: 'failed' });
-
-    // Calculate Average Time
-    const timeAgg = await AnalysisRun.aggregate([
+    
+    // Aggregation for Average Time and Total Issues
+    const aggResults = await AnalysisRun.aggregate([
       {
         $group: {
           _id: null,
-          avgDuration: { $avg: "$durationMs" }
+          avgDuration: { $avg: "$durationMs" },
+          totalIssues: { $sum: "$issueCount" }
         }
       }
     ]);
+
+    const result = aggResults[0] || { avgDuration: 0, totalIssues: 0 };
     
-    const avgMs = timeAgg.length > 0 ? timeAgg[0].avgDuration : 0;
+    const avgMs = result.avgDuration || 0;
     const avgMins = avgMs / 60000;
     
     // Format string "Xm Ys"
@@ -74,7 +76,7 @@ app.get('/api/dashboard', async (req, res) => {
 
     const stats = {
       passed,
-      issues: failed, // Mapping 'failed' count to 'issues' for frontend compatibility
+      issues: result.totalIssues, // Sum of all issues detected
       avgTime: avgTimeStr,
       avgTimeMinutes: parseFloat(avgMins.toFixed(2)),
       totalRuns

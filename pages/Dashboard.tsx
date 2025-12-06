@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, CheckCircle, AlertTriangle, Clock, Database } from 'lucide-react';
+import { Plus, CheckCircle, AlertTriangle, Clock, Database, ServerOff, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getDashboardData } from '../services/dbService';
 import { DashboardStats, HistoryItem } from '../types';
@@ -9,18 +9,23 @@ import { DashboardStats, HistoryItem } from '../types';
 export const Dashboard: React.FC = () => {
   const [data, setData] = useState<{ stats: DashboardStats; history: HistoryItem[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const dashboardData = await getDashboardData();
+      setData(dashboardData);
+    } catch (err: any) {
+      console.error("Dashboard load failed", err);
+      setError(err.message || "Failed to connect to the VibeCheck server.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const dashboardData = await getDashboardData();
-        setData(dashboardData);
-      } catch (err) {
-        console.error("Dashboard load failed", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
 
@@ -30,6 +35,33 @@ export const Dashboard: React.FC = () => {
         <div className="flex flex-col items-center gap-4">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             <p>Syncing with VibeCheck Database...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="bg-vibe-panel border border-red-500/20 rounded-xl p-8 max-w-lg text-center shadow-2xl">
+          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <ServerOff className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Backend Connection Failed</h2>
+          <p className="text-slate-400 mb-6 text-sm leading-relaxed">
+            Could not fetch data from the VibeCheck server. <br/>
+            Please ensure you have started the local backend using <code className="bg-black/30 px-1 py-0.5 rounded text-slate-300">node server.js</code> and that MongoDB is running.
+          </p>
+          <div className="bg-black/30 p-4 rounded-lg mb-6 text-left">
+            <p className="text-xs font-mono text-red-400 break-all">Error: {error}</p>
+          </div>
+          <button 
+            onClick={fetchData}
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-all w-full"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry Connection
+          </button>
         </div>
       </div>
     );
