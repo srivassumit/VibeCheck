@@ -1,13 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getDashboardData } from '../services/dbService';
+import { DashboardStats, HistoryItem } from '../types';
 
 export const Dashboard: React.FC = () => {
-  // Load data from local DB on mount
-  const [data] = useState(getDashboardData());
+  const [data, setData] = useState<{ stats: DashboardStats; history: HistoryItem[] } | null>(null);
+
+  useEffect(() => {
+    // Fetch data in effect to avoid render-time side effects
+    const dashboardData = getDashboardData();
+    setData(dashboardData);
+  }, []);
+
+  if (!data) {
+    return (
+      <div className="p-8 text-slate-400">Loading dashboard data...</div>
+    );
+  }
+
   const { stats, history } = data;
+
+  const formatDateSafe = (dateStr: string) => {
+    try {
+      if (!dateStr) return 'Recently';
+      return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
+    } catch (e) {
+      return 'Recently';
+    }
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -32,7 +54,7 @@ export const Dashboard: React.FC = () => {
             <div className="p-2 bg-green-500/10 rounded-lg">
               <CheckCircle className="w-6 h-6 text-green-500" />
             </div>
-            <span className="text-2xl font-bold text-white">{stats.passed}</span>
+            <span className="text-2xl font-bold text-white">{stats?.passed || 0}</span>
           </div>
           <p className="text-slate-400 text-sm">PRs Passed</p>
         </div>
@@ -41,7 +63,7 @@ export const Dashboard: React.FC = () => {
             <div className="p-2 bg-yellow-500/10 rounded-lg">
               <AlertTriangle className="w-6 h-6 text-yellow-500" />
             </div>
-            <span className="text-2xl font-bold text-white">{stats.issues}</span>
+            <span className="text-2xl font-bold text-white">{stats?.issues || 0}</span>
           </div>
           <p className="text-slate-400 text-sm">Issues Detected</p>
         </div>
@@ -50,7 +72,7 @@ export const Dashboard: React.FC = () => {
             <div className="p-2 bg-blue-500/10 rounded-lg">
               <Clock className="w-6 h-6 text-blue-500" />
             </div>
-            <span className="text-2xl font-bold text-white">{stats.avgTime}</span>
+            <span className="text-2xl font-bold text-white">{stats?.avgTime || '0m'}</span>
           </div>
           <p className="text-slate-400 text-sm">Avg. Analysis Time</p>
         </div>
@@ -65,7 +87,8 @@ export const Dashboard: React.FC = () => {
           <div className="col-span-2 text-right">Date</div>
         </div>
         
-        {history.length === 0 ? (
+        {/* Added strict array check for history */}
+        {!Array.isArray(history) || history.length === 0 ? (
            <div className="p-8 text-center text-slate-500">
              No analyses run yet. Start a new session!
            </div>
@@ -100,7 +123,7 @@ export const Dashboard: React.FC = () => {
                    </span>
                  </div>
                  <div className="col-span-2 text-right text-slate-500 text-sm">
-                   {formatDistanceToNow(new Date(item.date), { addSuffix: true })}
+                   {formatDateSafe(item.date)}
                  </div>
                </div>
              ))}
