@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, CheckCircle, AlertTriangle, Clock, Server, Database } from 'lucide-react';
+import { Plus, CheckCircle, AlertTriangle, Clock, Database } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getDashboardData } from '../services/dbService';
 import { DashboardStats, HistoryItem } from '../types';
@@ -149,4 +149,18 @@ export const Dashboard: React.FC = () => {
                    )}
                  </div>
                  <div className="col-span-2 text-white font-mono text-sm">
-                   <span className={item.score > 80 ? 'text-green-400' : item.score > 50 ? 'text-yellow-400' : 'text-red-40
+                   <span className={item.score > 80 ? 'text-green-400' : item.score > 50 ? 'text-yellow-400' : 'text-red-400'}>
+                     {item.score}/100
+                   </span>
+                 </div>
+                 <div className="col-span-2 text-right text-slate-500 text-xs">
+                   {formatDateSafe(item.date)}
+                 </div>
+               </div>
+             ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
